@@ -1,0 +1,59 @@
+#!/usr/bin/env ruby
+
+# Source: https://github.com/cmur2/munin-bitcoin
+
+#
+# Example usage:
+#  Do
+#    ln -s /path/to/bitcoin_ bitcoin_<currency>
+#  where <currency> is a currency known to https://api.bitcoinaverage.com/ticker/
+#  like EUR or USD.
+#
+# Example config:
+#  [bitcoin_*]
+#
+
+require 'rubygems'
+require 'json'
+
+require 'open-uri'
+
+script = File.basename($0)
+@currency = script.gsub('bitcoin_', '')
+@cmd = ARGV[0]
+
+# open stderr
+$stderr = IO.new(2, "w")
+
+def uri(currency)
+	"http://api.bitcoinaverage.com/ticker/#{currency}" # HTTPS supported
+end
+
+def echo_price(currency, data)
+	case @cmd
+	when 'config'
+		puts "graph_title Bitcoin (in #{currency})"
+		puts "graph_args --lower-limit 0"
+		puts "graph_vlabel #{currency}"
+		puts "graph_category finance"
+		puts "graph_scale no"
+		puts "graph_info This graph shows the last price of Bitcoin from http://bitcoinaverage.com/"
+		%w{last ask bid total_vol 24h_avg}.each do |x|
+			puts "#{x}.label #{x.gsub('_', ' ').split(' ').map { |y| y.capitalize }.join(' ')}"
+			puts "#{x}.type GAUGE"
+		end
+	else
+		%w{last ask bid total_vol 24h_avg}.each do |x|
+			puts "#{x}.value #{data[x]}"
+		end
+	end
+end
+
+begin
+	raw_data = open(uri(@currency)).read
+	data = JSON.parse(raw_data)
+	#puts data.inspect
+	echo_price(@currency, data)
+rescue => ex
+	$stderr.puts "Cannot connect to bitcoinaverage.com: #{ex.to_s}"
+end
