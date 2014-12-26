@@ -29,7 +29,7 @@ def uri(currency)
 	"https://api.bitcoinaverage.com/ticker/#{currency}"
 end
 
-def echo_price(currency, data)
+def echo_price(currency, &get_data)
 	case @cmd
 	when 'config'
 		puts "graph_title Bitcoin (in #{currency})"
@@ -43,6 +43,7 @@ def echo_price(currency, data)
 			puts "#{x}.type GAUGE"
 		end
 	else
+		data = get_data.call
 		%w{last ask bid total_vol 24h_avg}.each do |x|
 			puts "#{x}.value #{data[x]}"
 		end
@@ -50,10 +51,12 @@ def echo_price(currency, data)
 end
 
 begin
-	raw_data = open(uri(@currency)).read
-	data = JSON.parse(raw_data)
-	#puts data.inspect
-	echo_price(@currency, data)
+	echo_price(@currency) do
+		raw_data = open(uri(@currency)).read
+		data = JSON.parse(raw_data)
+		#puts data.inspect
+		data
+	end
 rescue => ex
 	$stderr.puts "Cannot connect to bitcoinaverage.com: #{ex.to_s}"
 end
